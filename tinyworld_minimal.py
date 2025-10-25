@@ -20,9 +20,10 @@ Notes:
 """
 from __future__ import annotations
 from dataclasses import dataclass, field
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Any, Callable, Dict, List, Optional, Tuple
 import json
 import random
+import textwrap
 
 # ==========================
 # Data models
@@ -82,6 +83,11 @@ SAFE_ACTION = {
 }
 
 
+def _clone_safe_action() -> Dict[str, Any]:
+    """Return a deep copy of the safe fallback action."""
+    return json.loads(json.dumps(SAFE_ACTION))
+
+
 def clamp(v: int, lo: int, hi: int) -> int:
     return max(lo, min(hi, v))
 
@@ -115,6 +121,180 @@ def snapshot_for(world: WorldState, agent: AgentState) -> Dict[str, Any]:
             "costs": {"move": 1, "attack": 1, "invent": 1, "rest": -1},
             "attack_damage": 1,
         },
+    }
+
+
+# ==========================
+# LLM policy helpers
+# ==========================
+
+LLM_RULES_BRIEF = textwrap.dedent(
+    """
+    - Turn order each round: Snapshot → Proposal → Move → Act (Attack or Invent) → Resolve → End check.
+    - Stats: HP starts at 10 (0 or less means death) and Energy starts at 10 (clamped 0-10).
+    - Energy costs: move -1, attack -1, invent -1, rest +1. If you lack energy, rest is enforced instead.
+    - Proposal phase: choose exactly one of send, reply, or silent. send/reply require a valid living recipient and non-empty text.
+    - Movement options: north, south, east, west, or rest. Moves must stay within bounds and cost 1 energy.
+    - Attack: requires ≥1 energy, targets an adjacent (N/E/S/W) living agent, and deals 1 HP damage.
+    - Invent: requires ≥1 energy. Choose type self_enhancement or world_effect; described effects last one turn.
+    - Messaging is optional and free; use it for diplomacy. Actions resolve deterministically in agent-id order.
+    """
+).strip()
+
+LLM_RESPONSE_SCHEMA = textwrap.dedent(
+    """
+    {
+      "proposal": {
+        "choice": "send" | "reply" | "silent",
+        "send_to": "<agent_id or null>",
+        "send_message": "<string>",
+        "reply_to": "<agent_id or null>",
+        "reply_message": "<string>"
+      },
+      "move": {
+        "choice": "north" | "south" | "east" | "west" | "rest"
+      },
+      "act": {
+        "choice": "attack" | "invent" | "none",
+        "attack_target": "<agent_id or null>",
+        "invent": {
+          "type": "self_enhancement" | "world_effect" | "none",
+          "effect": "<string>",
+          "intended_rules": "<string describing the intended temporary effect>"
+        }
+      }
+    }
+    """
+).strip()
+
+
+def build_llm_prompt(snapshot: Dict[str, Any], agent_id: str) -> str:
+    """
+    Construct the instruction prompt for an LLM-controlled agent.
+
+    Parameters
+    ----------
+    snapshot:
+        The agent-centric observation produced by `snapshot_for`.
+    agent_id:
+        Identifier of the agent requesting a decision.
+
+    Returns
+    -------
+    str
+        A fully formatted prompt ready to be sent to an LLM completion endpoint.
+    """
+    snapshot_json = json.dumps(snapshot, indent=2, sort_keys=True)
+    turn = snapshot.get("turn")
+    you = snapshot.get("you", {})
+    energy = you.get("energy")
+    hp = you.get("hp")
+    return textwrap.dedent(
+        f"""
+        You are TinyWorlds agent "{agent_id}" taking your turn in a deterministic multi-agent grid game.
+        Current turn: {turn}. Your stats — HP: {hp}, Energy: {energy}.
+
+        === Core Rules (must obey) ===
+        {LLM_RULES_BRIEF}
+
+        === Your Current Observation (JSON) ===
+        {snapshot_json}
+
+        === Task ===
+        Decide this turn's proposal, movement, and action so they respect the rules above and work toward your survival goals.
+        Plan around your remaining energy and nearby agents. You may message, reposition, attack adjacent foes, or invent one-turn effects.
+
+        === Response Requirements ===
+        Respond with a STRICT JSON object (no markdown, no commentary) matching this schema. Fill every placeholder with concrete values or nulls:
+        {LLM_RESPONSE_SCHEMA}
+
+        - Provide only the JSON object, nothing else.
+        - Make sure any costly action still leaves you with non-negative energy.
+        - Use null for irrelevant target fields.
+        """
+    ).strip()
+
+
+def _response_to_text(response: Any) -> str:
+    """Extract raw text content from a variety of LLM client return shapes."""
+    if isinstance(response, str):
+        return response
+    if isinstance(response, dict):
+        if "content" in response and isinstance(response["content"], str):
+            return response["content"]
+        choices = response.get("choices")
+        if isinstance(choices, list) and choices:
+            first = choices[0]
+            if isinstance(first, dict):
+                message = first.get("message")
+                if isinstance(message, dict):
+                    content = message.get("content")
+                    if isinstance(content, str):
+                        return content
+                text = first.get("text")
+                if isinstance(text, str):
+                    return text
+    raise ValueError("Unable to extract text content from LLM response payload.")
+
+
+def _extract_json_payload(text: str) -> Optional[str]:
+    """Return the substring that looks like the primary JSON object."""
+    if not text:
+        return None
+    start = text.find("{")
+    end = text.rfind("}")
+    if start == -1 or end == -1 or end < start:
+        return None
+    return text[start : end + 1]
+
+
+def policy_for_agent(snapshot: Dict[str, Any], *, llm_client: Callable[..., Any], **llm_kwargs: Any) -> Dict[str, Any]:
+    """
+    Policy hook that delegates action selection to an external LLM.
+
+    Usage example:
+
+    ```python
+    from functools import partial
+    POLICIES["sheep"] = partial(policy_for_agent, llm_client=openai_completion)
+    ```
+
+    The `llm_client` callable must accept the prompt string as its first positional
+    argument and return either a plain string or a response dict with an OpenAI-like shape.
+    Additional keyword arguments for the client can be provided via `llm_kwargs`.
+    """
+    if llm_client is None:
+        raise ValueError("An llm_client callable is required for policy_for_agent.")
+
+    agent_id = snapshot.get("you", {}).get("agent_id", "agent")
+    prompt = build_llm_prompt(snapshot, agent_id)
+
+    try:
+        raw_response = llm_client(prompt, **llm_kwargs)
+    except Exception:
+        return _clone_safe_action()
+
+    try:
+        response_text = _response_to_text(raw_response)
+    except Exception:
+        return _clone_safe_action()
+
+    json_payload = _extract_json_payload(response_text)
+    if not json_payload:
+        return _clone_safe_action()
+
+    try:
+        parsed = json.loads(json_payload)
+    except json.JSONDecodeError:
+        return _clone_safe_action()
+
+    if not isinstance(parsed, dict):
+        return _clone_safe_action()
+
+    return {
+        "proposal": parsed.get("proposal", {}),
+        "move": parsed.get("move", {}),
+        "act": parsed.get("act", {}),
     }
 
 
