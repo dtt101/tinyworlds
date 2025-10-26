@@ -27,7 +27,7 @@ try:
     from openai import OpenAI
 except ImportError as exc:  # pragma: no cover - import guard
     raise RuntimeError(
-        "The openai package is required. Install it with `pip install openai`."
+        "The openai package is required"
     ) from exc
 
 from tinyworld_minimal import policy_for_agent
