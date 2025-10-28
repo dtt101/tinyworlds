@@ -75,20 +75,16 @@ class LLMPolicy:
 
     def _call_openai(self, prompt: str) -> str:
         client = self._client_cls()
-        # JSON mode ensures valid JSON, but we still validate schema
         resp = client.responses.create(
             model=self._pick_model(),
-            response_format={"type": "json_object"},
             input=[
                 {"role": "system", "content": self.system_prompt},
                 {"role": "user", "content": prompt},
             ],
         )
-        # Unified helper to extract text
         try:
             return resp.output_text  # type: ignore[attr-defined]
         except Exception:
-            # Fallback for SDK shape changes
             if hasattr(resp, "output") and resp.output and len(resp.output) > 0:
                 part = resp.output[0]
                 content = getattr(part, "content", None)
@@ -100,15 +96,11 @@ class LLMPolicy:
         prompt = build_llm_prompt(agent, world)
         raw = ""
         for _ in range(2):  # one retry on parse failure
-            try:
-                raw = self._call_openai(prompt)
-                obj = json.loads(raw)
-                mv = obj.get("move")
-                if isinstance(mv, str) and mv in ALLOWED_MOVES:
-                    return mv
-            except Exception:
-                print('LLM Failed move')
-            # tighten prompt with explicit reminder on retry
+            raw = self._call_openai(prompt)
+            obj = json.loads(raw)
+            mv = obj.get("move")
+            if isinstance(mv, str) and mv in ALLOWED_MOVES:
+                return mv
             prompt = prompt + "Reminder: Return only {\"move\": \"N|S|E|W|X\"}."
         return "X"
 
