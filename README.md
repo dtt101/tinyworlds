@@ -20,4 +20,3 @@ When the simulation runs, the selected agent will receive the full TinyWorlds
 prompt and return actions via the OpenAI chat completions API. All responses
 are still validated, so invalid JSON falls back to a safe default turn.
 
-Test
