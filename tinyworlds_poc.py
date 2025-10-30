@@ -6,7 +6,6 @@ No combat, no energy, no effects. Deterministic turn order. Simple ASCII render.
 Run:
   python tinyworlds_min.py --size 8 --rounds 20 --seed 42
 
-Switch a policy to LLMPolicy to wire an LLM later.
 """
 from __future__ import annotations
 from dataclasses import dataclass
@@ -16,6 +15,7 @@ import random
 import json
 import os
 from dotenv import load_dotenv
+from openai import OpenAI  # type: ignore
 
 load_dotenv()
 
@@ -43,14 +43,6 @@ class Agent:
 class Policy(Protocol):
     def choose_move(self, agent: Agent, world: "World", rng: random.Random) -> str: ...
 
-class RandomPolicy:
-    def __init__(self, bias_stay: float = 0.2):
-        self.bias_stay = bias_stay
-    def choose_move(self, agent: Agent, world: "World", rng: random.Random) -> str:
-        # Slight bias to staying to avoid jitter at borders
-        moves = ["X"] * int(self.bias_stay * 10) + ["N","S","E","W"]
-        return rng.choice(moves)
-
 class LLMPolicy:
     """
     OpenAI-backed policy. Requires OPENAI_API_KEY env var. Optional model via
@@ -60,13 +52,6 @@ class LLMPolicy:
     def __init__(self, system_prompt: str | None = None, model: Optional[str] = None):
         self.system_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
         self.model = model
-        # Lazy import to keep non-LLM runs lightweight
-        try:
-            from openai import OpenAI  # type: ignore
-        except Exception as e:  # pragma: no cover
-            raise RuntimeError(
-                "openai package not installed. `pip install openai`"
-            ) from e
         self._client_cls = OpenAI
 
     def _pick_model(self) -> str:
@@ -205,7 +190,7 @@ def demo(size: int, rounds: int, seed: int) -> None:
     ]
     world = World(size=size, agents=agents)
     policies: Dict[str, Policy] = {
-        "a1": RandomPolicy(bias_stay=0.1),
+        "a1": LLMPolicy(),
         "b2": LLMPolicy(),
     }
 
