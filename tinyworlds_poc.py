@@ -1,11 +1,5 @@
 """
-TinyWorlds — minimal move-only engine (Python)
-Agents (LLM-capable) can only move one square (N/E/S/W) or stay (X).
-No combat, no energy, no effects. Deterministic turn order. Simple ASCII render.
-
-Run:
-  python tinyworlds_min.py --size 8 --rounds 20 --seed 42
-
+TinyWorlds: Where AIs compete
 """
 from __future__ import annotations
 from typing import Dict, List, Tuple, Protocol, Optional
