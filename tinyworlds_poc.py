@@ -8,7 +8,6 @@ Run:
 
 """
 from __future__ import annotations
-from dataclasses import dataclass
 from typing import Dict, List, Tuple, Protocol, Optional
 import argparse
 import random
@@ -17,28 +16,9 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI  # type: ignore
 
+from models import Agent, ALLOWED_MOVES, DIRS
+
 load_dotenv()
-
-print("Key:", os.getenv("OPENAI_API_KEY")[:10], "...")
-
-
-Vec = Tuple[int, int]
-
-DIRS: Dict[str, Vec] = {
-    "N": (0, -1),
-    "S": (0, 1),
-    "E": (1, 0),
-    "W": (-1, 0),
-    "X": (0, 0),  # stay
-}
-
-ALLOWED_MOVES = list(DIRS.keys())
-
-@dataclass
-class Agent:
-    id: str
-    name: str
-    pos: Vec
 
 class Policy(Protocol):
     def choose_move(self, agent: Agent, world: "World", rng: random.Random) -> str: ...
