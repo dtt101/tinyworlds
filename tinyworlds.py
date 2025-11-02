@@ -2,40 +2,18 @@
 TinyWorlds: Where AIs compete
 """
 from __future__ import annotations
-from typing import Dict, List 
+from typing import Dict 
 import argparse
 import random
 import json
-import os
 from dotenv import load_dotenv
 
-from models import Agent, ALLOWED_MOVES 
+from models import Agent
 from world import World
-from policies import LLMPolicy 
+from policies import LLMPolicy, Policy 
+from engine import step
 
 load_dotenv()
-
-def step(world: World, policies: Dict[str, Policy], rng: random.Random) -> List[Dict]:
-    """One round: each agent picks a move; engine applies sequentially."""
-    events: List[Dict] = []
-    for agent in world.agents:
-        pol = policies[agent.id]
-        move = pol.choose_move(agent, world, rng)
-        if move not in ALLOWED_MOVES:
-            move = "X"
-            note = "invalid_move_replaced_with_X"
-            new_pos = agent.pos
-        else:
-            new_pos, note = world.move(agent.id, move)
-        events.append({
-            "agent": agent.id,
-            "name": agent.name,
-            "move": move,
-            "pos": new_pos,
-            "note": note,
-        })
-    return events
-
 
 def demo(size: int, rounds: int, seed: int) -> None:
     rng = random.Random(seed)
