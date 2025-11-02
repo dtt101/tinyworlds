@@ -13,5 +13,5 @@ At one point there might be graphics.
 
 ## Development
 
-Run with `uv run tinyworlds_poc.py`
+Run with `uv run tinyworlds.py`
 
