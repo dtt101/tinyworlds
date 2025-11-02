@@ -10,7 +10,7 @@ import os
 from dotenv import load_dotenv
 from openai import OpenAI  # type: ignore
 
-from models import Agent, ALLOWED_MOVES, DIRS
+from models import Agent, ALLOWED_MOVES 
 from world import World
 
 load_dotenv()
