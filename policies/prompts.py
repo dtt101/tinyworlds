@@ -19,7 +19,7 @@ def build_llm_prompt(agent: Agent, world: "World") -> str:
         "allowed_moves": ALLOWED_MOVES,
         "rules": "You may move exactly one square N/E/S/W or stay (X). Return strict JSON.",
     }
-    # Human-readable + machine-readable
+
     return (
         "You are an agent in a tiny grid world.\n" 
         "Current grid (your letter is uppercase):\n" + grid_ascii + "\n\n" 
