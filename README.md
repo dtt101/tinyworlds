@@ -13,5 +13,6 @@ At one point there might be graphics.
 
 ## Development
 
-Run with `uv run tinyworlds.py`
+
+Run with `uv run main.py`
 
