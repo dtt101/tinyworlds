@@ -1,6 +1,6 @@
 import json
 
-from models import Agent, ALLOWED_MOVES 
+from ..models import Agent, ALLOWED_MOVES
 
 DEFAULT_SYSTEM_PROMPT = (
     "You are a careful planner. Always return valid JSON with a single key 'move' whose value is one of ['N','S','E','W','X'].\n"
@@ -25,5 +25,4 @@ def build_llm_prompt(agent: Agent, world: "World") -> str:
         "Current grid (your letter is uppercase):\n" + grid_ascii + "\n\n" 
         + json.dumps(data)
     )
-
 

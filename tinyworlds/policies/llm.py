@@ -1,11 +1,15 @@
-import random
 import json
-from typing import Optional 
-from models import Agent, ALLOWED_MOVES 
-from world import World
+import random
+from typing import Callable, Optional
+
+from ..models import Agent, ALLOWED_MOVES
+from ..world import World
 from .prompts import DEFAULT_SYSTEM_PROMPT, build_llm_prompt
 
-from openai import OpenAI  # type: ignore
+try:
+    from openai import OpenAI  # type: ignore
+except ImportError:  # pragma: no cover - optional dependency
+    OpenAI = None  # type: ignore[assignment]
 
 class LLMPolicy:
     """
@@ -13,17 +17,30 @@ class LLMPolicy:
     TINYWORLDS_OPENAI_MODEL (default: 'gpt-4.1-mini'). Uses JSON mode and
     strict parsing; falls back to 'X' on any error.
     """
-    def __init__(self, system_prompt: str | None = None, model: Optional[str] = None):
+    def __init__(
+        self,
+        system_prompt: str | None = None,
+        model: Optional[str] = None,
+        client_factory: Optional[Callable[[], object]] = None,
+    ):
         self.system_prompt = system_prompt or DEFAULT_SYSTEM_PROMPT
         self.model = model
-        self._client_cls = OpenAI
+        if client_factory is not None:
+            self._client_factory = client_factory
+        else:
+            if OpenAI is None:
+                raise RuntimeError(
+                    "OpenAI client not available. Install the 'openai' package or "
+                    "provide a client_factory."
+                )
+            self._client_factory = OpenAI
 
     def _pick_model(self) -> str:
         import os
         return self.model or os.getenv("TINYWORLDS_OPENAI_MODEL", "gpt-4.1-mini")
 
     def _call_openai(self, prompt: str) -> str:
-        client = self._client_cls()
+        client = self._client_factory()
         resp = client.responses.create(
             model=self._pick_model(),
             input=[

@@ -1,8 +1,9 @@
 import random
 from typing import Dict, List
-from policies import Policy
-from models import ALLOWED_MOVES 
-from world import World
+
+from .policies import Policy
+from .models import ALLOWED_MOVES
+from .world import World
 
 
 def step(world: World, policies: Dict[str, Policy], rng: random.Random) -> List[Dict]:

@@ -1,6 +1,9 @@
-def main():
-    print("Hello from tinyworlds!")
+from tinyworlds.cli import main as cli_main
+
+
+def main() -> int:
+    return cli_main()
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())

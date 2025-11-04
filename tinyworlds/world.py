@@ -1,5 +1,6 @@
 from typing import Dict, List, Tuple, Optional
-from models import Agent, Vec, DIRS
+
+from .models import Agent, Vec, DIRS
 
 class World:
     def __init__(self, size: int, agents: List[Agent]):
