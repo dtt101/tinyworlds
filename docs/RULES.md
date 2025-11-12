@@ -31,8 +31,8 @@ Each turn runs in this strict order:
 ### HP & Energy
 - HP starts at 10.  
 - Energy starts at 10.  
-- **Move** → −1 Energy  
-- **Rest** → +1 Energy  
+- **Move (N/E/S/W)** → −1 Energy  
+- **Rest (X / stay put)** → +1 Energy  
 - **Attack** → −1 Energy, target −1 HP  
 - **Invent** → −1 Energy  
 - **Message** → 0 Energy  

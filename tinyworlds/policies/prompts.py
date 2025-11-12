@@ -10,14 +10,23 @@ DEFAULT_SYSTEM_PROMPT = (
 def build_llm_prompt(agent: Agent, world: "World") -> str:
     grid_ascii = world.render_ascii(highlight=agent.id)
     data = {
-        "you": {"id": agent.id, "name": agent.name, "pos": agent.pos},
+        "you": {
+            "id": agent.id,
+            "name": agent.name,
+            "pos": agent.pos,
+            "hp": agent.hp,
+            "energy": agent.energy,
+        },
         "others": [
-            {"id": a.id, "name": a.name, "pos": a.pos}
+            {"id": a.id, "name": a.name, "pos": a.pos, "hp": a.hp, "energy": a.energy}
             for a in world.agents if a.id != agent.id
         ],
         "board_size": world.size,
         "allowed_moves": ALLOWED_MOVES,
-        "rules": "You may move exactly one square N/E/S/W or stay (X). Return strict JSON.",
+        "rules": (
+            "Move exactly one square N/E/S/W (costs 1 energy) or rest (X) to stay put and regain 1 energy. "
+            "If moving would leave you with negative energy you are forced to rest. Return strict JSON."
+        ),
     }
 
     return (
@@ -25,4 +34,3 @@ def build_llm_prompt(agent: Agent, world: "World") -> str:
         "Current grid (your letter is uppercase):\n" + grid_ascii + "\n\n" 
         + json.dumps(data)
     )
-

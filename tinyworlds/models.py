@@ -18,5 +18,6 @@ class Agent:
     id: str
     name: str
     pos: Vec
-
+    hp: int = 10
+    energy: int = 10
 
