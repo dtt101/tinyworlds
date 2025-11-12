@@ -2,7 +2,7 @@ import json
 import random
 from typing import Callable, Optional
 
-from ..models import Agent, ALLOWED_MOVES
+from ..models import Agent, ALLOWED_MOVES, ActionDecision, is_adjacent
 from ..world import World
 from .prompts import DEFAULT_SYSTEM_PROMPT, build_llm_prompt
 
@@ -69,3 +69,18 @@ class LLMPolicy:
                 return mv
             prompt = prompt + "Reminder: Return only {\"move\": \"N|S|E|W|X\"}."
         return "X"
+
+    def choose_action(self, agent: Agent, world: "World", rng: random.Random) -> ActionDecision:
+        """
+        Temporary heuristic policy for the action phase: attack the first adjacent
+        opponent if possible; otherwise choose none.
+        """
+        if agent.energy <= 0:
+            return ActionDecision()
+
+        for other in world.agents:
+            if other.id == agent.id or other.hp <= 0:
+                continue
+            if is_adjacent(agent.pos, other.pos):
+                return ActionDecision(kind="attack", target=other.id)
+        return ActionDecision()

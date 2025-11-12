@@ -37,6 +37,17 @@ class World:
                 return a
         raise KeyError(agent_id)
 
+    def remove(self, agent_id: str) -> None:
+        """
+        Remove an agent from the world (used when HP drops to 0 or below).
+        """
+        for idx, agent in enumerate(self.agents):
+            if agent.id == agent_id:
+                self.occ.pop(agent.pos, None)
+                del self.agents[idx]
+                return
+        raise KeyError(agent_id)
+
     def render_ascii(self, highlight: Optional[str] = None) -> str:
         # Represent each agent as first letter of name (uppercase for highlight)
         grid = [["." for _ in range(self.size)] for _ in range(self.size)]
